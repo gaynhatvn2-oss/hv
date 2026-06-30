@@ -1,143 +1,197 @@
--- ============================================
--- ASO OMEGA V2 – MENU THÔNG MINH + SỰ KIỆN ĐÚNG
--- ============================================
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
 
-local function createOmegaMenu()
-    local old = LocalPlayer.PlayerGui:FindFirstChild("ASO_OmegaMenu")
-    if old then old:Destroy() end
+-- =======================================================
+-- ⚙️ KHỞI TẠO BIẾN CẤU HÌNH MẶC ĐỊNH
+-- =======================================================
+local AUTO_RUNNING = false
+local CONFIG_MAP = "Làng cối gió"
+local CONFIG_MODE = "Story"
+local CONFIG_ACT = "Act 1"
 
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ASO_OmegaMenu"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = LocalPlayer.PlayerGui
+-- Tọa độ kính chuẩn xác bạn đã quét được
+local GLASS_POSITION = Vector3.new(-216.97752380371094, 11.390323638916016, -313.96240234375)
 
-    -- Khung chính
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 220)
-    frame.Position = UDim2.new(0.5, -150, 0.5, -110)
-    frame.BackgroundColor3 = Color3.fromRGB(8, 8, 22)
-    frame.BackgroundTransparency = 0.15
-    frame.BorderSizePixel = 2
-    frame.BorderColor3 = Color3.fromRGB(255, 70, 70)
-    frame.Draggable = true
-    frame.Active = true
-    frame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = frame
-
-    -- Tiêu đề
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 32)
-    title.Position = UDim2.new(0, 0, 0, 5)
-    title.BackgroundTransparency = 1
-    title.Text = "⚡ ASO OMEGA V2"
-    title.TextColor3 = Color3.fromRGB(255, 100, 100)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.TextXAlignment = Enum.TextXAlignment.Center
-    title.Parent = frame
-
-    -- Nút chọn cấp độ (dựa trên ảnh: Cáp 1, Cáp 5, Cáp 20, Cáp 50)
-    local levels = {"Cáp 1", "Cáp 5", "Cáp 20", "Cáp 50"}
-    local yPos = 45
-    local btnWidth = 65
-    local spacing = 75
-    local startX = (frame.Size.X.Offset - (btnWidth * #levels + spacing * (#levels - 1))) / 2
-
-    for i, lv in ipairs(levels) do
-        local lvBtn = Instance.new("TextButton")
-        lvBtn.Size = UDim2.new(0, btnWidth, 0, 28)
-        lvBtn.Position = UDim2.new(0, startX + (i-1) * (btnWidth + spacing), 0, yPos)
-        lvBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
-        lvBtn.Text = lv
-        lvBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        lvBtn.Font = Enum.Font.GothamBold
-        lvBtn.TextSize = 13
-        lvBtn.Parent = frame
-
-        -- Gán sự kiện cho từng nút cấp độ
-        lvBtn.MouseButton1Click:Connect(function()
-            print("[ASO] Đã chọn cấp độ: " .. lv)
-            omegaOperation(lv)  -- Gọi hàm chính với cấp đã chọn
-        end)
-    end
-
-    -- Nút VÀO TRẬN (nút chính, mặc định Cáp 1)
-    local enterBtn = Instance.new("TextButton")
-    enterBtn.Size = UDim2.new(0, 120, 0, 36)
-    enterBtn.Position = UDim2.new(0.15, 0, 0, yPos + 38)
-    enterBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    enterBtn.Text = "▶ VÀO TRẬN"
-    enterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    enterBtn.Font = Enum.Font.GothamBold
-    enterBtn.TextSize = 14
-    enterBtn.Parent = frame
-
-    enterBtn.MouseButton1Click:Connect(function()
-        print("[ASO] Vào trận mặc định Cáp 1")
-        omegaOperation("Cáp 1")
-    end)
-
-    -- Nút DỪNG
-    local stopBtn = Instance.new("TextButton")
-    stopBtn.Size = UDim2.new(0, 100, 0, 36)
-    stopBtn.Position = UDim2.new(0.55, 0, 0, yPos + 38)
-    stopBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    stopBtn.Text = "■ DỪNG"
-    stopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    stopBtn.Font = Enum.Font.GothamBold
-    stopBtn.TextSize = 14
-    stopBtn.Parent = frame
-
-    stopBtn.MouseButton1Click:Connect(function()
-        print("[ASO] Lệnh dừng khẩn cấp")
-        stopOmega()
-    end)
-
-    -- Trạng thái
-    local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(0.9, 0, 0, 25)
-    status.Position = UDim2.new(0.05, 0, 0, yPos + 85)
-    status.BackgroundTransparency = 1
-    status.Text = "🟢 Sẵn sàng"
-    status.TextColor3 = Color3.fromRGB(150, 255, 150)
-    status.Font = Enum.Font.Gotham
-    status.TextSize = 13
-    status.TextXAlignment = Enum.TextXAlignment.Center
-    status.Parent = frame
-
-    -- Cập nhật trạng thái
-    local oldEnter = omegaOperation
-    omegaOperation = function(level)
-        status.Text = "🔵 Đang vào trận..."
-        status.TextColor3 = Color3.fromRGB(255, 200, 50)
-        local success = oldEnter(level)
-        if success then
-            status.Text = "🟢 Đã vào trận"
-            status.TextColor3 = Color3.fromRGB(150, 255, 150)
-        else
-            status.Text = "🔴 Lỗi vào trận"
-            status.TextColor3 = Color3.fromRGB(255, 100, 100)
-        end
-    end
-
-    local oldStop = stopOmega
-    stopOmega = function()
-        status.Text = "🟠 Đang dừng..."
-        status.TextColor3 = Color3.fromRGB(255, 150, 50)
-        oldStop()
-        status.Text = "🟢 Đã dừng"
-        status.TextColor3 = Color3.fromRGB(150, 255, 150)
-    end
-
-    return screenGui
+-- =======================================================
+-- 🎨 THIẾT KẾ GIAO DIỆN MENU SETUP (GUI)
+-- =======================================================
+-- Xóa Menu cũ nếu lỡ chạy lại script
+if CoreGui:FindFirstChild("AnimeDefendersSetup") then
+    CoreGui.AnimeDefendersSetup:Destroy()
 end
 
--- ============================================
--- GỌI LẠI MENU MỚI
--- ============================================
--- Xóa menu cũ và tạo mới
-createOmegaMenu()
-print("[ASO] Menu Omega V2 đã được cập nhật. Nhấn F9 để ẩn/hiện.")
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AnimeDefendersSetup"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Khung nền Menu chính
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UIDimensions and UIDimensions.new(0, 320, 0, 260) or UDim2.new(0, 320, 0, 260)
+MainFrame.Position = UDim2.new(0.5, -160, 0.4, -130)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- Cho phép kéo menu di chuyển trên màn hình
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+-- Tiêu đề Menu
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Title.Text = "MENU SETUP ANIME DEFENDERS"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = Title
+
+-- Hàm tạo các nút nhập cấu hình nhanh (Helper)
+local function createInputRow(labelName, defaultVal, yPos, callback)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 100, 0, 30)
+    Label.Position = UDim2.new(0, 15, 0, yPos)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelName .. ":"
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Font = Enum.Font.SourceSans
+    Label.Parent = MainFrame
+
+    local TextBox = Instance.new("TextBox")
+    TextBox.Size = UDim2.new(0, 180, 0, 30)
+    TextBox.Position = UDim2.new(0, 125, 0, yPos)
+    TextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    TextBox.Text = defaultVal
+    TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextBox.TextSize = 14
+    TextBox.Font = Enum.Font.SourceSans
+    TextBox.BorderSizePixel = 0
+    TextBox.Parent = MainFrame
+    
+    local BoxCorner = Instance.new("UICorner")
+    BoxCorner.CornerRadius = UDim.new(0, 5)
+    BoxCorner.Parent = TextBox
+
+    TextBox.FocusLost:Connect(function()
+        callback(TextBox.Text)
+    end)
+end
+
+-- Tạo các dòng nhập thông số cấu hình
+createInputRow("Chọn Bản Đồ", CONFIG_MAP, 60, function(val) CONFIG_MAP = val print("Đổi Map thành: " .. val) end)
+createInputRow("Chế Độ Chơi", CONFIG_MODE, 105, function(val) CONFIG_MODE = val print("Đổi Chế độ thành: " .. val) end)
+createInputRow("Cấp Độ / Act", CONFIG_ACT, 150, function(val) CONFIG_ACT = val print("Đổi Cấp độ thành: " .. val) end)
+
+-- Nút Bắt đầu / Dừng Auto
+local StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, -30, 0, 40)
+StartBtn.Position = UDim2.new(0, 15, 0, 200)
+StartBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
+StartBtn.Text = "BẮT ĐẦU AUTO"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.TextSize = 16
+StartBtn.Font = Enum.Font.SourceSansBold
+StartBtn.BorderSizePixel = 0
+StartBtn.Parent = MainFrame
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 8)
+BtnCorner.Parent = StartBtn
+
+-- =======================================================
+-- ⚙️ LOGIC XỬ LÝ CHẠY TỰ ĐỘNG (ROUTINE)
+-- =======================================================
+local function autoClickLogic()
+    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local worldsGui = playerGui:FindFirstChild("WorldsGui") or playerGui:FindFirstChild("ElevatorGui") or playerGui:FindFirstChild("LobbyGui")
+    
+    if worldsGui and worldsGui.Enabled == true then
+        local mainFrame = worldsGui:FindFirstChild("MainFrame") or worldsGui:FindFirstChild("Frame")
+        if not mainFrame then return end
+        
+        -- 1. Click chọn Map
+        local mapScroll = mainFrame:FindFirstChild("Maps") or mainFrame:FindFirstChild("Worlds") or mainFrame:FindFirstChild("ScrollingFrame")
+        if mapScroll then
+            for _, child in pairs(mapScroll:GetChildren()) do
+                if child:IsA("GuiButton") and (string.find(child.Name, CONFIG_MAP) or (child:FindFirstChild("Title") and string.find(child.Title.Text, CONFIG_MAP))) then
+                    for _, conn in pairs(getconnections(child.MouseButton1Click)) do conn:Fire() end
+                    task.wait(0.4)
+                    break
+                end
+            end
+        end
+        
+        -- 2. Click chọn Chế độ / Cấp độ
+        local rightFrame = mainFrame:FindFirstChild("RightFrame") or mainFrame:FindFirstChild("InfoFrame") or mainFrame
+        local modeBtn = rightFrame:FindFirstChild(CONFIG_MODE) or rightFrame:FindFirstChild("StoryButton") or rightFrame:FindFirstChild(CONFIG_ACT)
+        if modeBtn and modeBtn:IsA("GuiButton") then
+            for _, conn in pairs(getconnections(modeBtn.MouseButton1Click)) do conn:Fire() end
+            task.wait(0.3)
+        end
+        
+        -- 3. Bấm Vào Trận
+        local startPlayBtn = rightFrame:FindFirstChild("StartButton") or rightFrame:FindFirstChild("PlayButton") or mainFrame:FindFirstChild("Start")
+        if startPlayBtn and startPlayBtn:IsA("GuiButton") then
+            for _, conn in pairs(getconnections(startPlayBtn.MouseButton1Click)) do conn:Fire() end
+            print("[AUTO GUI] Đã bấm nút kích hoạt vào trận thành công!")
+        end
+    end
+end
+
+-- Vòng lặp luồng chính
+task.spawn(function()
+    while true do
+        if AUTO_RUNNING then
+            local character = LocalPlayer.Character
+            if character then
+                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                local humanoid = character:FindFirstChild("Humanoid")
+                
+                if rootPart and humanoid then
+                    -- Kiểm tra xem bảng UI chọn thế giới đã mở chưa
+                    local playerGui = LocalPlayer.PlayerGui
+                    local opened = playerGui:FindFirstChild("WorldsGui") or playerGui:FindFirstChild("ElevatorGui")
+                    
+                    if not (opened and opened.Enabled) then
+                        -- Nếu UI chưa mở -> Tiến hành Teleport chạm kính để ép bung UI
+                        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+                        rootPart.CFrame = CFrame.new(GLASS_POSITION)
+                        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                        
+                        humanoid.Jump = true -- Nhảy nhẹ để chắc chắn kích hoạt chạm kính
+                    else
+                        -- Nếu UI đã mở -> Chạy hàm Click chọn thông số
+                        autoClickLogic()
+                    end
+                end
+            end
+        end
+        task.wait(0.5) -- Tốc độ lặp kiểm tra
+    end
+end)
+
+-- Sự kiện nhấn nút Bắt đầu / Dừng trên Menu
+StartBtn.MouseButton1Click:Connect(function()
+    AUTO_RUNNING = not AUTO_RUNNING
+    if AUTO_RUNNING then
+        StartBtn.Text = "ĐANG CHẠY - BẤM ĐỂ DỪNG"
+        StartBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+        print("[SYSTEM] Đã kích hoạt chu trình Auto Setup!")
+    else
+        StartBtn.Text = "BẮT ĐẦU AUTO"
+        StartBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
+        print("[SYSTEM] Đã tạm dừng Auto!")
+    end
+end)
